@@ -1,0 +1,5 @@
+2025-11-25 12:37:43.930 | INFO     | backend.services.exchange_client:__init__:16 - Binance testnet client initialized
+2025-11-25 12:48:41.989 | INFO     | backend.services.exchange_client:__init__:16 - Binance testnet client initialized
+2025-11-25 12:56:35.269 | INFO     | backend.services.exchange_client:__init__:16 - Binance testnet client initialized
+2025-11-25 12:56:41.874 | INFO     | backend.services.exchange_client:__init__:16 - Binance testnet client initialized
+2025-11-25 13:01:44.424 | INFO     | backend.services.exchange_client:__init__:16 - Binance testnet client initialized
