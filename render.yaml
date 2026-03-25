@@ -1,0 +1,44 @@
+services:
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  - type: web
+    name: crypto-trading-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENV
+        value: production
+      - key: API_KEY
+        sync: false
+      - key: API_SECRET
+        sync: false
+      - key: API_BASE_URL
+        value: https://testnet.binance.vision
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: USE_TEST_ORDER
+        value: "True"
+      - key: DRY_RUN
+        value: "True"
+      - key: SYMBOL
+        value: BTCUSDT
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+  # ── Frontend (static site) ───────────────────────────────────────────────────
+  - type: web
+    name: crypto-trading-ui
+    env: static
+    buildCommand: cd ui && npm install && npm run build
+    staticPublishPath: ui/dist
+    envVars:
+      - key: VITE_BACKEND_URL
+        sync: false
+      - key: VITE_ADMIN_TOKEN
+        sync: false
