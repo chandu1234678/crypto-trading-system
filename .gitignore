@@ -1,3 +1,12 @@
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+ui/.env.local
+ui/.env.production
+ui/.env.staging
+
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
@@ -10,24 +19,21 @@ build/
 .eggs/
 .Python
 pip-wheel-metadata/
+*.pyo
+*.pyd
 
 # ── Virtual environments ──────────────────────────────────────────────────────
 .venv/
 venv/
 env/
 ENV/
-
-# ── Environment / secrets ─────────────────────────────────────────────────────
-.env
-.env.*
-!.env.example
-ui/.env.local
-ui/.env.*.local
+.virtualenv/
 
 # ── Database ──────────────────────────────────────────────────────────────────
 data/*.db
 data/*.db-shm
 data/*.db-wal
+*.sqlite3
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 logs/
@@ -38,6 +44,9 @@ ui/node_modules/
 ui/dist/
 ui/.vite/
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # ── IDE / Editor ──────────────────────────────────────────────────────────────
 .vscode/
@@ -46,13 +55,22 @@ node_modules/
 *.swo
 .DS_Store
 Thumbs.db
+*.suo
+*.user
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+coverage.xml
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+ehthumbs.db
+Desktop.ini
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.bak
 *.tmp
+*.orig

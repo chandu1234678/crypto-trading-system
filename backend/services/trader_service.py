@@ -1,44 +1,50 @@
 # backend/services/trader_service.py
 import json
-import pandas as pd
+import logging
+from typing import Any, Dict, Optional
+from sqlalchemy.orm import Session
+from backend.models.db import Trade
 from backend.services.exchange_client import ExchangeClient
-from backend.services.strategy_service import generate_signal
-from backend.models.db import SessionLocal, Trade, init_db
+from backend.services.strategy_service import get_signal
 from backend.config import settings
 
-init_db()
-exchange = ExchangeClient(settings.API_KEY, settings.API_SECRET, settings.API_BASE_URL)
-db = SessionLocal()
+log = logging.getLogger(__name__)
 
-def save_trade(symbol, side, quantity, price, status="submitted", details=None):
-    t = Trade(symbol=symbol, side=side, quantity=quantity, price=price, status=status, details=details)
-    db.add(t); db.commit(); db.refresh(t)
-    return t
 
-def run_signal_and_place(symbol="BTCUSDT", interval="1m", spend_quote=None, use_test=None):
+def save_trade(db: Session, symbol: str, side: str, quantity: float,
+               price: Optional[float], status: str = "submitted",
+               order_id: Optional[str] = None, details: Optional[str] = None) -> Trade:
+    trade = Trade(symbol=symbol, side=side, quantity=quantity, price=price,
+                  status=status, order_id=order_id, details=details)
+    db.add(trade)
+    db.commit()
+    db.refresh(trade)
+    return trade
+
+
+def run_signal_and_place(db: Session, client: ExchangeClient,
+                         symbol: str = "BTCUSDT", interval: str = "1m",
+                         spend_quote: Optional[float] = None) -> Dict[str, Any]:
     spend = spend_quote if spend_quote is not None else settings.SPEND_QUOTE
-    use_test = True if use_test is None else use_test
-    raw = exchange.get_klines(symbol, interval, limit=200)
-    # raw is list-of-lists; close is index 4
-    cols = ["open_time","open","high","low","close","volume","close_time","quote_asset_vol","num_trades","taker_base_vol","taker_quote_vol","ignore"]
-    df = pd.DataFrame(raw, columns=cols)
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    raw = client.get_klines(symbol, interval, limit=200)
+    sig_result = get_signal(raw)
+    signal = sig_result.get("signal", "HOLD")
+    result: Dict[str, Any] = {"signal": signal, "action": "none"}
 
-    sig = generate_signal(df)
-    result = {"signal": sig, "action": "none"}
-
-    if sig == "BUY":
-        last_price = float(df["close"].iloc[-1])
-        qty = round(spend / last_price, 8)
-        order = exchange.place_market_order(symbol, "BUY", qty, use_test=use_test)
-        t = save_trade(symbol, "BUY", qty, last_price, "submitted", json.dumps(order))
-        result.update({"action":"buy", "quantity": qty, "price": last_price, "order": order, "trade_id": t.id})
-    elif sig == "SELL":
-        last_price = float(df["close"].iloc[-1])
-        qty = round(spend / last_price, 8)
-        order = exchange.place_market_order(symbol, "SELL", qty, use_test=use_test)
-        t = save_trade(symbol, "SELL", qty, last_price, "submitted", json.dumps(order))
-        result.update({"action":"sell", "quantity": qty, "price": last_price, "order": order, "trade_id": t.id})
+    if signal in ("BUY", "SELL"):
+        last_price = float(sig_result.get("price", 0))
+        qty = round(spend / last_price, 8) if last_price > 0 else 0
+        try:
+            order = client.create_order(symbol=symbol, side=signal, type="MARKET",
+                                        quantity=qty, test=settings.USE_TEST_ORDER)
+            order_id = str(order.get("orderId", ""))
+            trade = save_trade(db, symbol, signal, qty, last_price,
+                               status="submitted", order_id=order_id, details=json.dumps(order))
+            result.update({"action": signal.lower(), "quantity": qty, "price": last_price,
+                           "order": order, "trade_id": trade.id})
+        except Exception:
+            log.exception("run_signal_and_place order failed")
+            result["action"] = "error"
     else:
-        result.update({"action":"hold"})
+        result["action"] = "hold"
     return result
