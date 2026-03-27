@@ -40,7 +40,9 @@ from backend.api.account    import router as account_router
 from backend.api.poller     import router as poller_router
 from backend.api.chat       import router as chat_router
 from backend.api.automation import router as automation_router
+from backend.api.auth       import router as auth_router
 
+app.include_router(auth_router,       prefix="/api/v1")
 app.include_router(market_router,     prefix="/api/v1")
 app.include_router(trading_router,    prefix="/api/v1")
 app.include_router(account_router,    prefix="/api/v1")

@@ -1,10 +1,13 @@
 // ui/src/App.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from "./api";
+import { useAuth } from "./context/AuthContext";
 import Dashboard  from "./components/Dashboard";
 import Trading    from "./components/Trading";
 import Assistant  from "./components/Assistant";
 import Automation from "./components/Automation";
+import Settings   from "./components/Settings";
+import LoginPage  from "./components/LoginPage";
 import Toast      from "./components/Toast";
 
 const NAV = [
@@ -12,11 +15,13 @@ const NAV = [
   { id: "trading",    label: "Trading",      icon: "⇅" },
   { id: "automation", label: "Automation",   icon: "⚡" },
   { id: "assistant",  label: "AI Assistant", icon: "✦" },
+  { id: "settings",   label: "Settings",     icon: "⚙" },
 ];
 
 let _toastId = 0;
 
 export default function App() {
+  const { user, loading: authLoading, logout } = useAuth();
   const [tab,    setTab]    = useState("dashboard");
   const [toasts, setToasts] = useState([]);
   const [health, setHealth] = useState(null);
@@ -33,6 +38,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!user) return;
     async function tick() {
       try { setHealth(await api.health()); } catch (_) {}
       try { setSignal(await api.signal("BTCUSDT", "1m")); } catch (_) {}
@@ -40,7 +46,27 @@ export default function App() {
     tick();
     timerRef.current = setInterval(tick, 30000);
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [user]);
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+        background:"var(--bg)", color:"var(--muted)", fontSize:14 }}>
+        <span className="spin" style={{ marginRight:8 }}>⟳</span> Loading…
+      </div>
+    );
+  }
+
+  // Not logged in — show login page
+  if (!user) {
+    return (
+      <>
+        <LoginPage toast={toast} />
+        <Toast toasts={toasts} remove={removeToast} />
+      </>
+    );
+  }
 
   const sig      = signal?.signal ?? "…";
   const sigClass = sig === "BUY" ? "buy" : sig === "SELL" ? "sell" : "hold";
@@ -60,7 +86,23 @@ export default function App() {
           </button>
         ))}
         <div className="sidebar-footer">
-          <div style={{ marginBottom:6 }}>
+          {/* User info */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10,
+            padding:"8px 10px", background:"var(--bg-input)", borderRadius:8 }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:"var(--accent-soft)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:12, fontWeight:700, color:"var(--accent)", flexShrink:0 }}>
+              {user.username?.[0]?.toUpperCase()}
+            </div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {user.username}
+              </div>
+              {user.is_admin && <div style={{ fontSize:10, color:"var(--accent)" }}>Admin</div>}
+            </div>
+          </div>
+          {/* Health */}
+          <div style={{ marginBottom:4 }}>
             <span className={`health-dot ${health?.exchange_connected ? "ok" : "err"}`} />
             <span className="health-label">
               {health ? (health.exchange_connected ? "Exchange OK" : "Exchange down") : "Connecting…"}
@@ -77,9 +119,6 @@ export default function App() {
                 {health?.poller_running ? "on" : "off"}
               </span>
             </span>
-            <span className="health-label" style={{ color:"var(--muted)", marginTop:4, fontSize:10 }}>
-              {import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000"}
-            </span>
           </div>
         </div>
       </aside>
@@ -93,12 +132,8 @@ export default function App() {
           <div className="topbar-pills">
             <span className={`pill ${sigClass}`}>BTC {sig}</span>
             <span className="pill">{btcPrice}</span>
-            {signal?.rsi != null && (
-              <span className="pill">RSI {Number(signal.rsi).toFixed(1)}</span>
-            )}
-            <span className={`pill ${health?.status === "ok" ? "" : "sell"}`}>
-              {health?.status ?? "…"}
-            </span>
+            {signal?.rsi != null && <span className="pill">RSI {Number(signal.rsi).toFixed(1)}</span>}
+            <span className={`pill ${health?.status === "ok" ? "" : "sell"}`}>{health?.status ?? "…"}</span>
           </div>
         </div>
 
@@ -106,6 +141,7 @@ export default function App() {
         {tab === "trading"    && <Trading    toast={toast} />}
         {tab === "automation" && <Automation toast={toast} />}
         {tab === "assistant"  && <Assistant  toast={toast} />}
+        {tab === "settings"   && <Settings   toast={toast} />}
       </div>
 
       <Toast toasts={toasts} remove={removeToast} />
