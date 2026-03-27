@@ -65,10 +65,10 @@ async def _ask_gemini(prompt: str) -> str:
         return "AI analysis unavailable — GEMINI_API_KEY not set."
 
     models = [
-        settings.GEMINI_MODEL or "gemini-2.5-flash",
+        settings.GEMINI_MODEL or "gemini-2.5-flash-lite",
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
+        "gemini-2.5-flash",
     ]
     messages = [{"role": "user", "parts": [{"text": prompt}]}]
 
@@ -229,12 +229,12 @@ async def risk_check(req: RiskCheckRequest):
         "risk_pct_of_balance": round(risk_pct_of_bal, 2),
         "max_qty_2pct_rule": round(max_qty_by_risk, 6),
         "recommendation": (
-            "✓ Good R:R ratio" if rr_ratio >= 2 else
-            "⚠ Low R:R ratio — consider adjusting targets"
+            "Good R:R ratio (>= 2:1)" if rr_ratio >= 2 else
+            "Low R:R ratio — consider adjusting targets"
         ),
         "risk_warning": (
-            "⚠ Risk exceeds 2% of balance — reduce position size" if risk_pct_of_bal > 2 else
-            "✓ Risk within 2% rule"
+            "Risk exceeds 2% of balance — reduce position size" if risk_pct_of_bal > 2 else
+            "Risk within 2% rule"
         ),
     }
 

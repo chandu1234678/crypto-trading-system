@@ -13,9 +13,9 @@ router = APIRouter(prefix="/chat", tags=["AI Assistant"])
 
 # Fallback chain — tried in order until one succeeds
 _MODEL_FALLBACKS = [
-    "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.0-flash",
+    "gemini-2.5-flash",
     "gemini-2.0-flash-lite",
     "gemini-flash-latest",
 ]
