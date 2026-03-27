@@ -1,72 +1,51 @@
 // ui/src/api.js
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
-const ADMIN_TOKEN =
-  import.meta.env.VITE_ADMIN_TOKEN || "admin123";
+const BASE = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+const TOKEN = import.meta.env.VITE_ADMIN_TOKEN || "admin123";
 
-// ---------- low-level request helper ----------
-async function request(path, { method = "GET", body = undefined } = {}) {
-  const res = await fetch(`${BACKEND_URL}${path}`, {
+async function req(path, { method = "GET", body } = {}) {
+  const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-token": ADMIN_TOKEN,
-    },
+    headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-
   if (!res.ok) {
-    const text = await res.text();
-    // this is what you see in the red banner
-    throw new Error(`Backend error: ${res.status} → ${text}`);
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail ?? detail; } catch (_) {}
+    throw new Error(`${res.status}: ${detail}`);
   }
-
-  // 204 No Content safety, but we always return JSON
   if (res.status === 204) return null;
   return res.json();
 }
 
-// ---------- high-level API ----------
 const api = {
-  // health
-  testConnection() {
-    return request("/");
+  health: ()                          => req("/health"),
+  klines: (symbol, interval, limit)   => req(`/api/v1/market/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`),
+  ticker: (symbol)                    => req(`/api/v1/market/ticker?symbol=${symbol}`),
+  orderBook: (symbol, limit = 10)     => req(`/api/v1/market/orderbook?symbol=${symbol}&limit=${limit}`),
+  signal: (symbol = "BTCUSDT", interval = "1m") => req(`/api/v1/market/signal?symbol=${symbol}&interval=${interval}`),
+  exchangeInfo: (symbol)              => req(`/api/v1/market/exchange-info${symbol ? `?symbol=${symbol}` : ""}`),
+  placeOrder: (payload)               => req("/api/v1/trading/order", { method: "POST", body: payload }),
+  runNow: ()                          => req("/api/v1/trading/run-now", { method: "POST" }),
+  tradeHistory: (params = {})         => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null)).toString();
+    return req(`/api/v1/trading/history${q ? `?${q}` : ""}`);
   },
-
-  // strategy signal
-  signal() {
-    // GET /strategy/signal?symbol=BTCUSDT&interval=1m
-    return request("/strategy/signal?symbol=BTCUSDT&interval=1m");
-  },
-
-  // account
-  account() {
-    return request("/account");
-  },
-
-  // open orders
-  openOrders(symbol = "BTCUSDT") {
-    const q = symbol ? `?symbol=${encodeURIComponent(symbol)}` : "";
-    return request(`/open-orders${q}`);
-  },
-
-  // trade
-  trade(payload) {
-    // payload must be an object, example:
-    // { symbol: "BTCUSDT", side: "BUY", type: "MARKET", quantity: 0.001, force_execute: true }
-    return request("/trade", { method: "POST", body: payload });
-  },
-
-  // AI chat
-  chat(q) {
-    return request("/chat", { method: "POST", body: { q } });
-  },
+  getTrade: (id)                      => req(`/api/v1/trading/history/${id}`),
+  account: ()                         => req("/api/v1/account"),
+  openOrders: (symbol)                => req(`/api/v1/account/orders/open${symbol ? `?symbol=${symbol}` : ""}`),
+  cancelOrder: (symbol, orderId)      => req(`/api/v1/account/orders/${symbol}/${orderId}`, { method: "DELETE" }),
+  exchangeTrades: (symbol, limit=50)  => req(`/api/v1/account/trades/${symbol}?limit=${limit}`),
+  pollerStatus: ()                    => req("/api/v1/poller/status"),
+  pollerStart: ()                     => req("/api/v1/poller/start", { method: "POST" }),
+  pollerStop: ()                      => req("/api/v1/poller/stop", { method: "POST" }),
+  chat: (q)                           => req("/api/v1/chat", { method: "POST", body: { q } }),
+  chatModels: ()                      => req("/api/v1/chat/models"),
+  scan: (symbols, interval)           => req("/api/v1/automation/scan", { method: "POST", body: { symbols, interval } }),
+  autoTrade: (cfg)                    => req("/api/v1/automation/auto-trade", { method: "POST", body: cfg }),
+  aiAnalysis: (symbol, interval)      => req("/api/v1/automation/ai-analysis", { method: "POST", body: { symbol, interval, include_signal: true } }),
+  riskCheck: (payload)                => req("/api/v1/automation/risk-check", { method: "POST", body: payload }),
+  automationSummary: ()               => req("/api/v1/automation/summary"),
 };
 
-// Expose in devtools for manual testing
-if (typeof window !== "undefined") {
-  window.api = api;
-  console.log("[ctp] window.api attached for dev console testing");
-}
-
+if (typeof window !== "undefined") window._api = api;
 export default api;
